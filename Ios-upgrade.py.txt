@@ -1,0 +1,90 @@
+#!/usr/bin/env python
+#from netmiko import Netmiko
+from netmiko import ConnectHandler
+from getpass import getpass
+import netmiko
+from netmiko import SCPConn
+import os,sys,command,re
+import string
+
+
+net_connect = ConnectHandler(
+        device_type="cisco_ios",
+        host=input("Enter your Hostname/Ip Address:"),
+        username=input("Enter your Username to Login:"),
+        password=getpass(),
+        session_log="output.txt",
+        delay_factor_compat="True",
+        fast_cli="False",
+)
+##md5var = input("Please enter Md5 sum")
+#Check necessary space on Flash:#
+shint = net_connect.send_command('show ip int brief')
+print(shint)
+shbgp = net_connect.send_command('show ip bgp summary')
+print(shbgp)
+output1 = net_connect.send_command('show bootvar')
+print(output1)
+shver = net_connect.send_command('show version')
+print(shver)
+shrun = net_connect.send_command('show run')
+#print(shrun)
+output = net_connect.send_command('show flash:')
+output = re.findall(r"\w+(?= bytes available)", output)
+output = ", ".join(output)
+print(output)
+csrfiles = net_connect.send_command('dir csr1000*')
+print(csrfiles)
+#archive = input("\n\nSuccess! - proceed with delete ISO image ? (y/n) ... ")
+#if archive == 'y':
+#    for i in range(0, delint):
+#   count     print(i)
+#    count = 0
+#    delfile = input("Enter filename to DELETE")
+#    count = 0
+#    while (count < 2):
+#        count = count + 1
+#        net_connect.send_command('delete /force flash:' + delfile)
+#else:
+#    print("No ISO image file")
+md5var = input("Enter your MD5 to validate the copied ISO Image:")
+isovar = input("Enter your ISO image file name:")
+#iso = input("Enter ISO image name")
+print(md5var)
+isovar1 = print(isovar)
+print(output1)
+#net_connect.config_mode()
+#remove_boot = net_connect.send_config_set('no boot system')
+#print(remove_boot)
+#configoutput1 = net_connect.send_config_set('boot system flash bootflash:/' + isovar)
+#net_connect.send_command('wr mem')
+#print(configoutput1)
+#output1 = net_connect.send_command('show bootvar')
+#print(output1)
+output4 = net_connect.send_command(
+            "verify /md5 bootflash:" + isovar,
+            delay_factor=2
+)
+output5 = output4.split(' ')
+print(output5[4])
+n2 = len(output5[4])
+md5routervar = output5[4].translate({ord(c): None for c in string.whitespace})
+print(md5routervar)
+auto_reload = input("Do you want to reload Router Yes/No:")
+if md5var == md5routervar:
+    net_connect.config_mode()
+    net_connect.send_config_set('no boot system')
+    net_connect.send_config_set('boot system flash bootflash:/' + isovar)
+    net_connect.send_command('wr mem')
+    net_connect.send_command('show bootvar')
+    net_connect.send_command('show version')
+    print("MD5 is verified,we are good to go for upgrade")
+    if auto_reload == "Yes":
+#        try:
+        confirm_reload = net_connect.send_command('reload', expect_string='[confirm]')
+        confirm_reload = net_connect.send_command('\n', expect_string='[confirm]')
+    elif auto_reload == "No":
+        print("Please change the boot sequence manually! and proceed with reload")
+else:
+    print("Md5sum is not matching,please check and copy the correct ios")
+    net_connect.disconnect()
